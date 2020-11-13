@@ -1,4 +1,6 @@
 import os
+import subprocess
+import tempfile
 from random import choice
 from random import randint
 from typing import Dict
@@ -6,6 +8,7 @@ from urllib.parse import quote
 
 import requests
 from discord import Client
+from discord import File
 from discord.ext import commands
 from dotenv import load_dotenv
 from isodate import Duration
@@ -49,10 +52,17 @@ async def ping(ctx):
 
 @bot.command(name='pic', help='Force KayBot to look at disgusting food and share pics of it.')
 async def post_pic(ctx):
-    await ctx.send('Success')
+    title, vid_id = get_random_video()
+    time = get_random_time_secs(vid_id)
+    ts = secs_to_timestamp(time)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        screenshot = get_screenshot(time, vid_id, str(tmpdir))
+        image = File(screenshot)
+        await ctx.send(f'`{title} ({ts})`', file=image)
 
 
-def get_random_video_id() -> str:
+def get_random_video() -> str:
     reqs = make_request({
         'part': 'contentDetails',
         'id': KAY_ID,
@@ -73,20 +83,20 @@ def get_random_video_id() -> str:
         'pageToken': '',
     }
 
-    video_ids = []
+    videos = []
     while True:
         url = 'https://youtube.googleapis.com/youtube/v3/playlistItems' + make_request(reqs)
         response = requests.get(url=url).json()
         items = response['items']
         if not items:
             break
-        video_ids += [vid['snippet']['resourceId']['videoId'] for vid in items]
+        videos += [(vid['snippet']['title'], vid['snippet']['resourceId']['videoId']) for vid in items]
         next_page = response['nextPageToken'] if 'nextPageToken' in response else ''
         if not next_page:
             break
         reqs['pageToken'] = next_page
 
-    return choice(video_ids)
+    return choice(videos)
 
 
 def get_random_time_secs(video_id: str) -> Duration:
@@ -101,19 +111,34 @@ def get_random_time_secs(video_id: str) -> Duration:
     return randint(1, time.total_seconds())
 
 
-def get_screenshot(time_secs: int, video_id: str):
-    ...
+def secs_to_timestamp(total_secs: int) -> str:
+    mins, secs = total_secs // 60, total_secs % 60
+
+    if mins < 10:
+        mins = "0" + str(mins)
+    if secs < 10:
+        secs = "0" + str(secs)
+
+    return f'{mins}:{secs}'
+
+
+def get_screenshot(time_secs: int, video_id: str, tmpdir: str) -> str:
+    ts = secs_to_timestamp(time_secs)
+    cmd1 = f'ffmpeg -ss "{ts}" -i'
+    youtube_dl_cmd = f'$(youtube-dl -f 22 --get-url "https://www.youtube.com/watch?v={video_id}")'
+    cmd2 = f'-vframes 1 -q:v 2 "{tmpdir}/out.png"'
+
+    cmd = cmd1.split(' ')
+    cmd.append(youtube_dl_cmd)
+    cmd += cmd2.split(' ')
+    subprocess.run(' '.join(cmd), shell=True)
+
+    return f'{tmpdir}/out.png'
 
 
 def main():
     print(f'Connecting bot...')
-
-    vid_id = get_random_video_id()
-    time = get_random_time_secs(vid_id)
-
-    screenshot = get_screenshot(time, vid_id)
-
-    # bot.run(TOKEN)
+    bot.run(DISCORD_TOKEN)
 
 
 if __name__ == '__main__':
