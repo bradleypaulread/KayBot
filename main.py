@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import tempfile
@@ -39,6 +40,7 @@ def make_request(query_args: Dict[str, str]) -> str:
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} connected!')
+    logging.info('Bot initialised and connected.')
 
 
 @bot.command(name='ping', help='Ping the bot.')
@@ -53,13 +55,24 @@ async def ping(ctx):
 @bot.command(name='pic', help='Force KayBot to look at disgusting food and share pics of it.')
 async def post_pic(ctx):
     title, vid_id = get_random_video()
+    logging.info(f'Randomly selected "{title}" with id "{vid_id}"')
+
     time = get_random_time_secs(vid_id)
     ts = secs_to_timestamp(time)
+    logging.info(f'Randomly selected timestamp {ts}')
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        screenshot = get_screenshot(time, vid_id, str(tmpdir))
-        image = File(screenshot)
-        await ctx.send(f'`{title} ({ts})`', file=image)
+        attempts = 0
+        while attempts < 5:
+            attempts += 1
+            screenshot = get_screenshot(time, vid_id, str(tmpdir))
+            if not os.path.exists(screenshot):
+                continue
+            image = File(screenshot)
+            await ctx.send(f'`{title} ({ts})`', file=image)
+            return
+
+    logging.error(f'Failed to screenshot "{title}" ({vid_id}), potentially due to stream link timeout')
 
 
 def get_random_video() -> str:
@@ -137,6 +150,7 @@ def get_screenshot(time_secs: int, video_id: str, tmpdir: str) -> str:
 
 
 def main():
+    logging.basicConfig(filename='kaybot.log', level=logging.DEBUG)
     print(f'Connecting bot...')
     bot.run(DISCORD_TOKEN)
 
