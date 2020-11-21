@@ -26,6 +26,8 @@ client = Client()
 
 bot = commands.Bot(command_prefix='!', case_insensitive=True)
 
+VIDEOS = []
+
 
 def make_request(query_args: Dict[str, str]) -> str:
     args = []
@@ -76,6 +78,8 @@ async def post_pic(ctx):
 
 
 def get_random_video() -> str:
+    global VIDEOS
+
     reqs = make_request({
         'part': 'contentDetails',
         'id': KAY_ID,
@@ -96,20 +100,28 @@ def get_random_video() -> str:
         'pageToken': '',
     }
 
-    videos = []
+    url = 'https://youtube.googleapis.com/youtube/v3/playlistItems' + make_request(reqs)
+    response = requests.get(url=url).json()
+
+    # if no new videos have been uploaded then use 'cache'
+    if not (len(VIDEOS) < response['pageInfo']['totalResults']):
+        return choice(VIDEOS)
+
+    VIDEOS.clear()
     while True:
         url = 'https://youtube.googleapis.com/youtube/v3/playlistItems' + make_request(reqs)
         response = requests.get(url=url).json()
+
         items = response['items']
         if not items:
             break
-        videos += [(vid['snippet']['title'], vid['snippet']['resourceId']['videoId']) for vid in items]
+        VIDEOS += [(vid['snippet']['title'], vid['snippet']['resourceId']['videoId']) for vid in items]
         next_page = response['nextPageToken'] if 'nextPageToken' in response else ''
         if not next_page:
             break
         reqs['pageToken'] = next_page
 
-    return choice(videos)
+    return choice(VIDEOS)
 
 
 def get_random_time_secs(video_id: str) -> Duration:
