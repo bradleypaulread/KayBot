@@ -2,4 +2,3 @@ python-dotenv
 discord.py
 requests
 isodate
-youtube_dl
