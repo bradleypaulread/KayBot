@@ -149,16 +149,19 @@ def secs_to_timestamp(total_secs: int) -> str:
 
 def get_screenshot(time_secs: int, video_id: str, tmpdir: str) -> str:
     ts = secs_to_timestamp(time_secs)
-    cmd1 = f'ffmpeg -ss "{ts}" -i'
-    youtube_dl_cmd = f'$(youtube-dl -f 22 --get-url "https://www.youtube.com/watch?v={video_id}")'
-    cmd2 = f'-vframes 1 -q:v 2 "{tmpdir}/out.png"'
-
-    cmd = cmd1.split(' ')
-    cmd.append(youtube_dl_cmd)
-    cmd += cmd2.split(' ')
-    subprocess.run(' '.join(cmd), shell=True)
+    youtubedl_url = get_youtubedl_url(video_id)
+    
+    cmd = ('ffmpeg', '-ss', ts, '-i', f'"{youtubedl_url}"', '-vframes', '1', '-q:v', '2', f'"{tmpdir}/out.png"',)
+    cmd_str = ' '.join(cmd)
+    subprocess.run(cmd_str, shell=True)
 
     return f'{tmpdir}/out.png'
+
+
+def get_youtubedl_url(video_id: str, quality: int = 137) -> str:
+    youtube_dl_cmd = ('youtube-dl', '-f', str(quality), '--get-url',
+                  f'https://www.youtube.com/watch?v={video_id}',)
+    return subprocess.check_output(youtube_dl_cmd).decode().strip()
 
 
 def main():
