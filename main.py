@@ -15,7 +15,10 @@ from dotenv import load_dotenv
 from isodate import Duration
 from isodate import parse_duration
 
-KAY_ID = 'UCeKWgImK1RAD9IGjWZqxmIw'
+IDS = [
+    'UCeKWgImK1RAD9IGjWZqxmIw',
+    'UCEEmgAo0xP-2sz_vcjCwqnA'
+]
 
 load_dotenv()
 
@@ -77,12 +80,16 @@ async def post_pic(ctx):
     logging.error(f'Failed to screenshot "{title}" ({vid_id}), potentially due to stream link timeout')
 
 
+def get_channel_id() -> str:
+    return choice(IDS)
+
+
 def get_random_video() -> str:
     global VIDEOS
 
     reqs = make_request({
         'part': 'contentDetails',
-        'id': KAY_ID,
+        'id': get_channel_id(),
         'key': YOUTUBE_TOKEN,
     })
 
